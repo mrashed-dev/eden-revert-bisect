@@ -29,6 +29,7 @@ namespace {
         // Keep in sync with cubeb_sink.cpp name.
         SDL_SetHint("SDL_AUDIO_DEVICE_APP_NAME", "yuzu Latency Getter");
 #ifdef __ANDROID__
+        SDL_SetHintWithPriority(SDL_HINT_ANDROID_LOW_LATENCY_AUDIO, "0", SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "openslES", SDL_HINT_OVERRIDE);
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             LOG_WARNING(Audio_Sink, "OpenSL ES audio initialization failed: {}; retrying default drivers", SDL_GetError());
