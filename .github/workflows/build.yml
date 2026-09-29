@@ -1,0 +1,62 @@
+name: eden-revert-build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: revert-4342-opengl
+            revert: "5c20f244c9"
+          - name: revert-4338-audio
+            revert: "aa4e494c08"
+          - name: revert-4341-externals
+            revert: "e53e76168c"
+          - name: revert-4339-gdb
+            revert: "1dcc574591"
+          - name: baseline-no-revert
+            revert: ""
+    steps:
+      - name: Install NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "cmake;3.22.1" >/dev/null
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Clone eden, checkout nightly base, revert one PR
+        run: |
+          git config --global user.email ci@example.invalid
+          git config --global user.name "CI Bisect"
+          git clone https://git.eden-emu.dev/eden-emu/eden.git eden
+          cd eden
+          git checkout 1dcc574591
+          if [ -n "$REVERT" ]; then
+            echo "Reverting merge commit $REVERT"
+            git revert --no-edit -m 1 "$REVERT"
+          fi
+          git log --oneline -3
+        env:
+          REVERT: ${{ matrix.revert }}
+
+      - name: Build APK (standard, Release)
+        working-directory: eden
+        run: |
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358"
+          .ci/android/build.sh -b Release -t standard
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.name }}
+          path: eden/artifacts/*.apk
+          if-no-files-found: error
